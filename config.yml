@@ -1,0 +1,39 @@
+# config.yml
+source:
+  type: csv
+  path: ./data/data.csv
+
+mqtt:
+  broker: "0.tcp.ap.ngrok.io"
+  port: 14384
+  username: ""
+  password: ""
+  tls: false
+  topic: "test/topic"
+  qos: 1
+  retain: false
+  client_id: "publisher-01"
+  keepalive: 60
+
+
+# Optional schema: helps validate and convert fields.
+# If schema is omitted, auto-conversion is attempted for all fields.
+schema:
+  id:
+    type: int
+    required: true
+  temp:
+    type: float
+    required: true
+  humidity:
+    type: float
+    required: false
+    default: 0.0
+  active:
+    type: bool
+    required: false
+    default: false
+  metadata:
+    type: json   # can be dict or list
+    required: false
+    default: {}
