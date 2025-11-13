@@ -3,3 +3,4 @@ myenv
 *.json
 mosquitto/data
 mosquitto/log
+*.txt
