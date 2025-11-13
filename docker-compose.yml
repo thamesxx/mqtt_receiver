@@ -1,0 +1,34 @@
+version: "3.9"
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"   # expose broker port to host (optional)
+      - "9001:9001"   # if you want websockets later (not required)
+    volumes:
+      - ./mosquitto/config:/mosquitto/config:ro
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    healthcheck:
+      test: ["CMD", "sh", "-c", "nc -z localhost 1883 || exit 1"]
+      interval: 5s
+      timeout: 2s
+      retries: 12
+
+  publisher:
+    build: .
+    container_name: mqtt_publisher
+    restart: "no"
+    environment:
+      - MQTT_BROKER_HOST=mosquitto
+      - MQTT_BROKER_PORT=1883
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    # If publisher needs access to local files (CSV/JSON), mount them:
+    # volumes:
+    #   - ./data:/app/data:ro
+    #   - ./config.yml:/app/config.yml:ro
