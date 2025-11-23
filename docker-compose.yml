@@ -19,11 +19,11 @@ services:
   publisher:
     build: .
     container_name: mqtt_publisher
-    restart: on-failure
+    restart: always  # Changed from on-failure
     environment:
       - MQTT_BROKER_HOST=mosquitto
       - MQTT_BROKER_PORT=1883
-      - WAIT_TIMEOUT=120       # wait up to 120s for broker to accept MQTT connect
+      - WAIT_TIMEOUT=120
       - WAIT_SLEEP=0.8
       - CONNECT_TIMEOUT=5
     depends_on:

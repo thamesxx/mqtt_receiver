@@ -4,3 +4,6 @@ myenv
 mosquitto/data
 mosquitto/log
 *.txt
+docker-compose_olld.yml
+publisher_old.py
+subscriber_old.py
