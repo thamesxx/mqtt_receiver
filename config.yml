@@ -4,8 +4,8 @@ source:
   path: ./data/data.csv
 
 mqtt:
-  broker: "0.tcp.ap.ngrok.io"
-  port: 14384
+  broker: "mosquitto"
+  port: 1883
   username: ""
   password: ""
   tls: false

@@ -1,3 +1,5 @@
+#publlisher.py
+
 #!/usr/bin/env python3
 import time
 import json
@@ -112,28 +114,45 @@ def create_client(cfg):
     client.on_publish = on_publish
 
     # connect and start loop
-    client.connect(broker, port, keepalive)
+    MAX_CONNECT_RETRIES = 12
+    CONNECT_RETRY_DELAY = 1.0  # seconds
+
+    for attempt in range(1, MAX_CONNECT_RETRIES + 1):
+        try:
+            client.connect(broker, port, keepalive)
+            break
+        except Exception as e:
+            log.warning("MQTT connect attempt %d/%d failed: %s", attempt, MAX_CONNECT_RETRIES, e)
+            if attempt == MAX_CONNECT_RETRIES:
+                log.exception("Exceeded max connect attempts, aborting.")
+                raise
+            time.sleep(CONNECT_RETRY_DELAY)
+
     client.loop_start()
     return client
 
-def publish_records(client, topic, records, qos=1, retain=False, wait_timeout=10):
+def publish_records(client, topic, records, qos=1, retain=False):
     sent = 0
+    infos = []
+    
     for rec in records:
         payload = json.dumps(rec, ensure_ascii=False)
         log.info("Publishing to %s: %s", topic, payload)
         info = client.publish(topic, payload, qos=qos, retain=retain)
-        # info is an MQTTMessageInfo — wait for it to be sent if possible
-        try:
-            ok = info.wait_for_publish(timeout=wait_timeout)
-            if ok:
-                log.info("Publish confirmed (mid=%s)", info.mid)
-                sent += 1
-            else:
-                log.warning("Publish not confirmed within %ss (mid=%s)", wait_timeout, info.mid)
-        except Exception as e:
-            log.exception("Exception while waiting for publish: %s", e)
-        # safe small pause between messages if you like
+        infos.append(info)
         time.sleep(0.1)
+    
+    # Wait a bit for the background loop to send everything
+    log.info("Waiting for messages to be sent...")
+    time.sleep(2.0)
+    
+    # Check which ones were sent
+    for info in infos:
+        if info.is_published():
+            sent += 1
+        else:
+            log.warning("Message mid=%s not confirmed", info.mid)
+    
     return sent
 
 # ------------------------------
@@ -187,8 +206,8 @@ def main(cfg_path="config.yml"):
     sent = publish_records(client, topic, processed, qos=qos, retain=retain)
     log.info("Published %d/%d", sent, len(processed))
 
-    # give a short grace period to flush packets, then cleanly stop
-    time.sleep(1.0)
+    # Give more time for network flush
+    time.sleep(3.0)  # Increased from 1.0
     client.loop_stop()
     client.disconnect()
 

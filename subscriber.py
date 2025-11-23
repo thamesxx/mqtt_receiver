@@ -1,3 +1,5 @@
+#subscriber.py
+
 #!/usr/bin/env python3
 import json
 import os
@@ -18,8 +20,8 @@ JSON_LOG = "messages.json"
 JSON_LOCK = Lock()  # simple in-process lock for safe writes
 
 # MQTT settings
-BROKER = "localhost"   # change to your broker if needed
-PORT = 1883
+BROKER = "0.tcp.ap.ngrok.io"
+PORT = 13052  # whatever port ngrok gives you
 TOPIC = "test/topic"
 QOS = 1                # subscribe with QoS 1 so subscriber will receive QoS1 messages and ack properly
 CLIENT_ID = "PythonReceiver"
