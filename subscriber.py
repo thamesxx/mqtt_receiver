@@ -23,7 +23,7 @@ JSON_LOCK = Lock()
 
 # MQTT settings
 BROKER = "0.tcp.ap.ngrok.io"   # change to your broker if needed
-PORT = 17806
+PORT = 18240
 TOPIC = "test/topic"
 STATUS_TOPIC = f"{TOPIC}/status"
 HEARTBEAT_TOPIC = f"{TOPIC}/heartbeat"
@@ -98,9 +98,9 @@ def on_connect(client, userdata, flags, reason_code, properties=None):
         log.info(f"✅ Connected to MQTT Broker as {CLIENT_ID}!")
         log.info(f"Connection flags: {flags}")
         
-        # Subscribe to main topic with QoS=1
-        result, mid = client.subscribe(TOPIC, QOS)
-        log.info(f"Subscribed to {TOPIC} with result={result}, mid={mid}")
+        # Subscribe to all record topics using wildcard
+        result, mid = client.subscribe(f"{TOPIC}/record/#", QOS)
+        log.info(f"Subscribed to {TOPIC}/record/# with result={result}, mid={mid}")
         
         # Subscribe to heartbeat topic to respond when publisher is ready
         result2, mid2 = client.subscribe(HEARTBEAT_TOPIC, 0)

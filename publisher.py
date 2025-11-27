@@ -83,10 +83,12 @@ def auto_convert_record(rec: dict):
 def publish_records(client, topic, records, qos=1, retain=False):
     sent = 0
     
-    for rec in records:
+    for idx, rec in enumerate(records, 1):
         payload = json.dumps(rec, ensure_ascii=False)
-        log.info("Publishing to %s: %s", topic, payload)
-        info = client.publish(topic, payload, qos=qos, retain=retain)
+        # Use unique topic for each record to allow all to be retained
+        record_topic = f"{topic}/record/{idx}"
+        log.info("Publishing to %s: %s", record_topic, payload)
+        info = client.publish(record_topic, payload, qos=qos, retain=retain)
         
         # Check immediate result
         if info.rc == mqtt.MQTT_ERR_SUCCESS:

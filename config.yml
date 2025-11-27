@@ -11,7 +11,7 @@ mqtt:
   tls: false
   topic: "test/topic"
   qos: 1
-  retain: false
+  retain: true
   client_id: "publisher-01"
   keepalive: 60
 
