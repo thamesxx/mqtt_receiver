@@ -10,8 +10,11 @@ from threading import Lock
 # -------------------------
 # Logging
 # -------------------------
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s - %(message)s")
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s - %(message)s")
 log = logging.getLogger("subscriber")
+
+# Enable MQTT client debug logging
+logging.getLogger("paho").setLevel(logging.DEBUG)
 
 # files
 TEXT_LOG = "messages.txt"
@@ -20,7 +23,7 @@ JSON_LOCK = Lock()
 
 # MQTT settings
 BROKER = "0.tcp.ap.ngrok.io"   # change to your broker if needed
-PORT = 13052
+PORT = 17806
 TOPIC = "test/topic"
 STATUS_TOPIC = f"{TOPIC}/status"
 HEARTBEAT_TOPIC = f"{TOPIC}/heartbeat"
@@ -89,21 +92,34 @@ def try_parse_json_payload(payload_text: str):
 # -------------------------
 # Callbacks
 # -------------------------
-def on_connect(client, userdata, flags, rc, properties=None):
-    if rc == 0:
-        print(f"✅ Connected to MQTT Broker as {CLIENT_ID}!")
+def on_connect(client, userdata, flags, reason_code, properties=None):
+    """Updated callback for VERSION2 API"""
+    if reason_code == 0 or str(reason_code) == "Success":
+        log.info(f"✅ Connected to MQTT Broker as {CLIENT_ID}!")
+        log.info(f"Connection flags: {flags}")
         
         # Subscribe to main topic with QoS=1
-        client.subscribe((TOPIC, QOS))
+        result, mid = client.subscribe(TOPIC, QOS)
+        log.info(f"Subscribed to {TOPIC} with result={result}, mid={mid}")
         
         # Subscribe to heartbeat topic to respond when publisher is ready
-        client.subscribe((HEARTBEAT_TOPIC, 0))
+        result2, mid2 = client.subscribe(HEARTBEAT_TOPIC, 0)
+        log.info(f"Subscribed to {HEARTBEAT_TOPIC} with result={result2}, mid={mid2}")
         
         # Announce our presence to the publisher
         log.info("Announcing presence to publisher...")
-        client.publish(STATUS_TOPIC, CLIENT_ID, qos=1)
+        result3 = client.publish(STATUS_TOPIC, CLIENT_ID, qos=1)
+        log.info(f"Announced with result={result3}")
     else:
-        print(f"❌ Failed to connect, return code {rc}")
+        log.error(f"❌ Failed to connect, reason code: {reason_code}")
+
+def on_subscribe(client, userdata, mid, reason_codes, properties=None):
+    """Callback when subscription is confirmed"""
+    log.info(f"Subscription confirmed for mid={mid}, reason_codes={reason_codes}")
+
+def on_disconnect(client, userdata, disconnect_flags, reason_code, properties=None):
+    """Callback when disconnected"""
+    log.warning(f"Disconnected! Reason: {reason_code}")
 
 def on_message(client, userdata, msg):
     # Handle heartbeat messages
@@ -164,22 +180,39 @@ def on_message(client, userdata, msg):
 # Main
 # -------------------------
 def main():
+    log.info("=" * 60)
     log.info("Starting subscriber with ID: %s", CLIENT_ID)
+    log.info("Broker: %s:%s", BROKER, PORT)
+    log.info("=" * 60)
     
-    client = mqtt.Client(client_id=CLIENT_ID, protocol=mqtt.MQTTv311)
+    # Use callback_api_version to avoid deprecation warning
+    client = mqtt.Client(
+        callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+        client_id=CLIENT_ID, 
+        protocol=mqtt.MQTTv311,
+        clean_session=True
+    )
 
     client.on_connect = on_connect
     client.on_message = on_message
+    client.on_subscribe = on_subscribe
+    client.on_disconnect = on_disconnect
 
     try:
-        log.info("Connecting to broker %s:%s", BROKER, PORT)
-        client.connect(BROKER, PORT)
+        log.info("Attempting connection to broker %s:%s...", BROKER, PORT)
+        client.connect(BROKER, PORT, keepalive=60)
+        log.info("Connect call completed, starting loop...")
     except Exception as e:
         log.exception("Failed to connect to broker %s:%s - %s", BROKER, PORT, e)
         return
 
     # loop_forever processes incoming packets and sends acks
-    client.loop_forever()
+    try:
+        client.loop_forever()
+    except KeyboardInterrupt:
+        log.info("Shutting down gracefully...")
+        client.disconnect()
+        log.info("Disconnected")
 
 if __name__ == "__main__":
     main()

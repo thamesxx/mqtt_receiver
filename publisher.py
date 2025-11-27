@@ -82,25 +82,23 @@ def auto_convert_record(rec: dict):
 # ------------------------------
 def publish_records(client, topic, records, qos=1, retain=False):
     sent = 0
-    infos = []
     
     for rec in records:
         payload = json.dumps(rec, ensure_ascii=False)
         log.info("Publishing to %s: %s", topic, payload)
         info = client.publish(topic, payload, qos=qos, retain=retain)
-        infos.append(info)
-        time.sleep(0.1)
-    
-    # Wait for messages to be sent
-    log.info("Waiting for messages to be sent...")
-    time.sleep(2.0)
-    
-    # Check which ones were sent
-    for info in infos:
-        if info.is_published():
+        
+        # Check immediate result
+        if info.rc == mqtt.MQTT_ERR_SUCCESS:
             sent += 1
         else:
-            log.warning("Message mid=%s not confirmed", info.mid)
+            log.warning("Publish failed with rc=%s for mid=%s", info.rc, info.mid)
+        
+        time.sleep(0.15)
+    
+    # Give extra time for all messages to flush through network
+    log.info("Published %d messages, waiting for network flush...", sent)
+    time.sleep(1.0)
     
     return sent
 
@@ -206,6 +204,10 @@ def monitor_with_heartbeat(client, topic, records, qos, retain):
                     if subscriber_id not in KNOWN_SUBSCRIBERS:
                         log.info("🆕 New subscriber: %s", subscriber_id)
                         KNOWN_SUBSCRIBERS.add(subscriber_id)
+                        
+                        # Give subscriber time to fully establish subscription
+                        log.info("Waiting 1s for subscriber to be ready...")
+                        time.sleep(1.0)
                         
                         sent = publish_records(client, topic, records, qos, retain)
                         log.info("✅ Sent %d records to %s", sent, subscriber_id)
